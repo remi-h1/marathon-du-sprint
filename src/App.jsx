@@ -11,8 +11,8 @@ const actions = [
   { id: 2, title: "🧱 Le mur du marathon", description: "Quelle difficulté as-tu rencontrée ? Comment la surmonter la prochaine fois ?", gain: 1 },
   { id: 3, title: "💥 Blessure réveillée", description: "Partage une frustration ou un processus à améliorer.", gain: 0 },
   { id: 4, title: "🙌 Encouragements des supporters", description: "Remercie ou félicite quelqu’un dans l’équipe.", gain: 2 },
-  { id: 5, title: "🧠 Changement de stratégie", description: "Propose une amélioration concrète pour le prochain sprint.", gain: 2 },
-  { id: 6, title: "🚰 Ravitaillement", description: "Tes deux voisins partagent un mot ou une image qui décrit l’ambiance du sprint.", gain: 1 },
+  { id: 5, title: "🧠 Changement de stratégie", description: "Propose une amélioration concrète pour le prochain sprint.", gain: 1 },
+  { id: 6, title: "🚰 Ravitaillement", description: "Tes deux voisins partagent chacun une anecdote sur le sprint ou un mot / une image qui décrit l’ambiance du sprint.", gain: 2 },
 ];
 
 const IMAGES = {
@@ -23,6 +23,7 @@ const IMAGES = {
   STRATEGY: { man: "assets/strategy.png", woman: "assets/strategy-woman.png", position: "28% 25%" },
   SUPPLIES: { man: "assets/supplies.png", woman: "assets/supplies-woman.png", position: "center 20%" },
   VICTORY: { man: "assets/victory.png", woman: "assets/victory-woman.png", position: "center 25%" },
+  VICTORYVENNDEE: { man: "assets/victory-vendee.png", woman: "assets/victory-vendee-woman.png", position: "center 25%" },
 };
 
 export default function App() {
@@ -34,6 +35,9 @@ export default function App() {
   const [runnerPosition, setRunnerPosition] = useState(IMAGES.RUNNING.position);
   const [undoStack, setUndoStack] = useState([]);
   const [coef, setCoef] = useState(COEF_DEFAULT);
+  const [selectedAction, setSelectedAction] = useState(null);
+  const [flipCount, setFlipCount] = useState(0);
+  const [isVendeeVictory, setIsVendeeVictory] = useState(false);
   const roundSmart = (num) => Math.round(num * 100) / 100;
 
   const handleAction = (gain, id) => {
@@ -51,6 +55,7 @@ export default function App() {
 
   const changeThemeAction = (id) => {
     if (showTrophy) return;
+    setSelectedAction(id);
 
     switch (id) {
       case 1:
@@ -94,7 +99,10 @@ export default function App() {
   const triggerVictory = () => {
     confetti({ particleCount: 250, spread: 90, origin: { y: 0.6 } });
     playAudio(AUDIO_TRACKS.VICTORY, false, 0.7);
+    setRunnerImage(IMAGES.VICTORY.man);
     setShowTrophy(true);
+    setFlipCount(0);
+    setIsVendeeVictory(false);
   };
 
   // Musique de départ
@@ -162,6 +170,7 @@ export default function App() {
     playAudio(AUDIO_TRACKS.START, true, 0.5);
     setTimeout(() => setDistance(0), 200);
     setUndoStack([]);
+    setFlipCount(0);
   };
 
   const handleUndo = () => {
@@ -177,8 +186,24 @@ export default function App() {
   const handleFlip = () => {
     if (isFlipping) return;
     setIsFlipping(true);
-    setIsFemale((prev) => !prev); // on change l’état directement
-    setTimeout(() => setIsFlipping(false), 500); // durée synchro avec la rotation
+    setIsFemale((prev) => !prev);
+
+    // Si on est sur la victoire, on incrémente le compteur
+    if (showTrophy) {
+      setFlipCount((prev) => {
+        const next = prev + 1;
+        // Au bout de 2 flips, on passe à la version Vendée
+        if (next >= 2 && !isVendeeVictory) {
+          setTimeout(() => {
+            setIsVendeeVictory(true);
+            setRunnerImage(IMAGES.VICTORYVENNDEE.man);
+          }, 250);
+        }
+        return next;
+      });
+    }
+
+    setTimeout(() => setIsFlipping(false), 500);
   };
 
   return (
@@ -296,28 +321,38 @@ export default function App() {
         {/* Actions bien positionnées sous la barre */}
         <div className="mt-8 w-full max-w-5xl">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {actions.map((a) => (
-              <motion.div
-                key={a.id}
-                whileHover={{ scale: 1.03 }}
-                onClick={() => changeThemeAction(a.id)}
-                className={`border border-indigo-200 rounded-2xl p-4 bg-white shadow-sm hover:shadow-md transition ${
-                  showTrophy ? "opacity-45 blur-sm" : "opacity-100"
-                }`}
-              >
-                <h3 className="text-lg font-semibold text-indigo-700">{a.title}</h3>
-                <p className="text-sm text-gray-700 mt-2">{a.description}</p>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAction(roundSmart(a.gain * coef), a.id);
+            {actions.map((a) => {
+              const isSelected = selectedAction === a.id;
+              return (
+                <motion.div
+                  key={a.id}
+                  whileHover={{ scale: 1.03 }}
+                  onClick={() => {
+                    changeThemeAction(a.id);
                   }}
-                  className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-semibold"
+                  className={`border-2 rounded-2xl p-4 bg-white shadow-sm hover:shadow-md transition
+                    ${
+                      isSelected
+                        ? "border-indigo-600 ring-4 ring-indigo-200 shadow-lg scale-[1.02]" // 🟦 style sélectionné
+                        : "border-indigo-200"
+                    }
+                    ${showTrophy ? "opacity-45 blur-sm" : "opacity-100"}
+                  `}
                 >
-                  +{roundSmart(a.gain * coef)} km
-                </button>
-              </motion.div>
-            ))}
+                  <h3 className="text-lg font-semibold text-indigo-700">{a.title}</h3>
+                  <p className="text-sm text-gray-700 mt-2">{a.description}</p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAction(roundSmart(a.gain * coef), a.id);
+                    }}
+                    className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-semibold"
+                  >
+                    +{roundSmart(a.gain * coef)} km
+                  </button>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
 
