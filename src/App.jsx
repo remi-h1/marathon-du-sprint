@@ -171,6 +171,7 @@ export default function App() {
     setTimeout(() => setDistance(0), 200);
     setUndoStack([]);
     setFlipCount(0);
+    setSelectedAction(null)
   };
 
   const handleUndo = () => {
